@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { SESSION1_STEPS } from '../sessions/session1'
 
@@ -12,19 +12,18 @@ export default function StudentView({ student }) {
   const [selectedItem, setSelectedItem] = useState('')
   const [paddletUrl, setPaddletUrl] = useState('')
 
-  // 세션 실시간 구독
   useEffect(() => {
     fetchSession()
     const channel = supabase
       .channel('session_changes')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'session' }, payload => {
         setSession(payload.new)
+        if (payload.new.paddlet_url) setPaddletUrl(payload.new.paddlet_url)
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [])
 
-  // 학생 데이터 불러오기
   useEffect(() => {
     fetchPersona()
     fetchProgress()
@@ -38,19 +37,15 @@ export default function StudentView({ student }) {
 
   const fetchPersona = async () => {
     const { data } = await supabase
-      .from('personas')
-      .select('*')
-      .eq('assigned_to', student.studentId)
-      .single()
+      .from('personas').select('*')
+      .eq('assigned_to', student.studentId).single()
     if (data) setPersona(data)
   }
 
   const fetchProgress = async () => {
     const { data } = await supabase
-      .from('student_progress')
-      .select('*')
-      .eq('student_id', student.studentId)
-      .eq('session_num', 1)
+      .from('student_progress').select('*')
+      .eq('student_id', student.studentId).eq('session_num', 1)
     if (data) {
       const merged = {}
       data.forEach(d => Object.assign(merged, d.data))
@@ -67,7 +62,7 @@ export default function StudentView({ student }) {
 
   const drawPersona = async () => {
     setLoading(true)
-    const { data, error } = await supabase.rpc('assign_persona', { p_student_id: student.studentId })
+    const { data } = await supabase.rpc('assign_persona', { p_student_id: student.studentId })
     if (data) setPersona(data)
     setLoading(false)
   }
@@ -90,64 +85,80 @@ export default function StudentView({ student }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const getAllDiscomforts = () => [
+    progress.discomfort_1,
+    progress.discomfort_2,
+    progress.ai_discomfort_1,
+    progress.ai_discomfort_2,
+    progress.ai_discomfort_3,
+  ].filter(Boolean)
+
   const currentStepData = SESSION1_STEPS[session.current_step]
   const currentSubstepData = currentStepData?.substeps[session.current_substep]
 
-  const getAllDiscomforts = () => {
-    return [
-      progress.discomfort_1,
-      progress.discomfort_2,
-      progress.discomfort_3,
-      progress.ai_discomfort_1,
-      progress.ai_discomfort_2,
-      progress.ai_discomfort_3,
-      progress.ai_discomfort_4,
-      progress.ai_discomfort_5,
-    ].filter(Boolean)
+  const PersonaSideCard = () => {
+    if (!persona) return null
+    return (
+      <div style={s.personaSideCard}>
+        <img src={persona.image_url} alt={persona.name} style={s.personaSideImage} />
+        <div style={s.personaSideInfo}>
+          <div style={s.personaSideName}>{persona.name}</div>
+          <div style={s.personaSideAge}>{persona.age} · {persona.job}</div>
+          <div style={s.personaSideLocation}>📍 {persona.location}</div>
+          <div style={s.painBox}>
+            <span style={s.painLabel}>통증 포인트 예시</span>
+            <p style={s.painText}>{persona.pain}</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  const renderSubstep = () => {
+  const renderContent = () => {
     if (!currentSubstepData) return null
-    const { type, instruction, field, placeholder, promptTemplate } = currentSubstepData
+    const { type, instruction, field, placeholder, promptTemplate, showPersona } = currentSubstepData
 
+    return (
+      <div>
+        {showPersona && <PersonaSideCard />}
+        {renderBlock(type, instruction, field, placeholder, promptTemplate)}
+      </div>
+    )
+  }
+
+  const renderBlock = (type, instruction, field, placeholder, promptTemplate) => {
     switch (type) {
       case 'info':
         return (
-          <div style={styles.infoBox}>
-            <p style={styles.infoText}>{instruction}</p>
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
           </div>
         )
 
       case 'draw_persona':
         return (
-          <div style={styles.infoBox}>
-            <p style={styles.infoText}>{instruction}</p>
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
             {!persona ? (
-              <button style={styles.drawButton} onClick={drawPersona} disabled={loading}>
+              <button style={s.mintBtn} onClick={drawPersona} disabled={loading}>
                 {loading ? '뽑는 중...' : '🎲 페르소나 뽑기!'}
               </button>
             ) : (
-              <div style={styles.personaCard}>
-                <img src={persona.image_url} alt={persona.name} style={styles.personaImage} />
-                <div style={styles.personaInfo}>
-                  <div style={styles.personaName}>{persona.name}</div>
-                  <div style={styles.personaAge}>{persona.age} · {persona.job}</div>
-                  <div style={styles.personaLocation}>📍 {persona.location}</div>
-                  <div style={styles.personaSection}>
-                    <span style={styles.sectionLabel}>하루 일과</span>
-                    <p style={styles.sectionText}>{persona.daily}</p>
-                  </div>
-                  <div style={styles.personaSection}>
-                    <span style={styles.sectionLabel}>니즈 & 목표</span>
-                    <p style={styles.sectionText}>{persona.needs}</p>
-                  </div>
-                  <div style={styles.personaSection}>
-                    <span style={styles.sectionLabel}>행동 패턴</span>
-                    <p style={styles.sectionText}>{persona.behavior}</p>
-                  </div>
-                  <div style={styles.painBox}>
-                    <span style={styles.painLabel}>통증 포인트 예시</span>
-                    <p style={styles.painText}>{persona.pain}</p>
+              <div style={s.personaCard}>
+                <img src={persona.image_url} alt={persona.name} style={s.personaImage} />
+                <div style={s.personaInfo}>
+                  <div style={s.personaName}>{persona.name}</div>
+                  <div style={s.personaAge}>{persona.age} · {persona.job}</div>
+                  <div style={s.personaLocation}>📍 {persona.location}</div>
+                  {[['하루 일과', persona.daily], ['니즈 & 목표', persona.needs], ['행동 패턴', persona.behavior]].map(([label, text]) => (
+                    <div key={label} style={s.section}>
+                      <span style={s.sectionLabel}>{label}</span>
+                      <p style={s.sectionText}>{text}</p>
+                    </div>
+                  ))}
+                  <div style={s.painBox}>
+                    <span style={s.painLabel}>통증 포인트 예시</span>
+                    <p style={s.painText}>{persona.pain}</p>
                   </div>
                 </div>
               </div>
@@ -157,16 +168,10 @@ export default function StudentView({ student }) {
 
       case 'input':
         return (
-          <div style={styles.inputBox}>
-            <p style={styles.infoText}>{instruction}</p>
-            {persona && (
-              <div style={styles.personaMini}>
-                <img src={persona.image_url} alt={persona.name} style={styles.personaMiniImage} />
-                <span style={styles.personaMiniName}>{persona.name} ({persona.age} {persona.job})</span>
-              </div>
-            )}
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
             <textarea
-              style={styles.textarea}
+              style={s.textarea}
               placeholder={placeholder}
               value={progress[field] || ''}
               onChange={e => saveProgress(field, e.target.value)}
@@ -176,28 +181,38 @@ export default function StudentView({ student }) {
         )
 
       case 'prompt_copy':
+      case 'prompt_copy_ai':
         return (
-          <div style={styles.promptBox}>
-            <p style={styles.infoText}>{instruction}</p>
-            <div style={styles.promptTemplate}>
-              <pre style={styles.promptText}>{promptTemplate}</pre>
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
+            <div style={s.promptTemplate}>
+              <pre style={s.promptText}>{promptTemplate}</pre>
             </div>
-            <button style={styles.copyButton} onClick={() => copyToClipboard(promptTemplate)}>
+            <button style={s.mintBtn} onClick={() => copyToClipboard(promptTemplate)}>
               {copied ? '✅ 복사됨!' : '📋 프롬프트 복사하기'}
             </button>
-            <a href="https://claude.ai" target="_blank" rel="noreferrer" style={styles.linkButton}>
-              Claude 열기 →
-            </a>
+            <div style={s.aiButtons}>
+              {[
+                { name: 'Claude', url: 'https://claude.ai', color: '#D97706' },
+                { name: 'ChatGPT', url: 'https://chat.openai.com', color: '#10A37F' },
+                { name: 'Gemini', url: 'https://gemini.google.com', color: '#4285F4' },
+                { name: '뤼튼', url: 'https://wrtn.ai', color: '#6366F1' },
+              ].map(ai => (
+                <a key={ai.name} href={ai.url} target="_blank" rel="noreferrer"
+                  style={{ ...s.aiBtn, background: ai.color }}>
+                  {ai.name} 열기
+                </a>
+              ))}
+            </div>
           </div>
         )
 
       case 'checkbox':
-        const allItems = getAllDiscomforts()
         return (
-          <div style={styles.inputBox}>
-            <p style={styles.infoText}>{instruction}</p>
-            {allItems.map((item, idx) => (
-              <label key={idx} style={styles.checkLabel}>
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
+            {getAllDiscomforts().map((item, idx) => (
+              <label key={idx} style={s.checkLabel}>
                 <input
                   type="checkbox"
                   checked={checkedItems.includes(item)}
@@ -208,9 +223,9 @@ export default function StudentView({ student }) {
                     setCheckedItems(newChecked)
                     saveProgress('checked_items', newChecked)
                   }}
-                  style={styles.checkbox}
+                  style={s.checkbox}
                 />
-                <span style={styles.checkText}>{item}</span>
+                <span style={s.checkText}>{item}</span>
               </label>
             ))}
           </div>
@@ -218,22 +233,19 @@ export default function StudentView({ student }) {
 
       case 'radio':
         return (
-          <div style={styles.inputBox}>
-            <p style={styles.infoText}>{instruction}</p>
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
             {checkedItems.map((item, idx) => (
-              <label key={idx} style={styles.checkLabel}>
+              <label key={idx} style={s.checkLabel}>
                 <input
                   type="radio"
                   name="selected_item"
                   value={item}
                   checked={selectedItem === item}
-                  onChange={() => {
-                    setSelectedItem(item)
-                    saveProgress('selected_item', item)
-                  }}
-                  style={styles.checkbox}
+                  onChange={() => { setSelectedItem(item); saveProgress('selected_item', item) }}
+                  style={s.checkbox}
                 />
-                <span style={styles.checkText}>{item}</span>
+                <span style={s.checkText}>{item}</span>
               </label>
             ))}
           </div>
@@ -242,12 +254,12 @@ export default function StudentView({ student }) {
       case 'share_copy':
         const shareText = `📌 내가 선택한 문제\n페르소나: ${persona?.name} (${persona?.age} ${persona?.job})\n해결할 문제: ${selectedItem}\n선택 이유: ${progress.reason || ''}`
         return (
-          <div style={styles.promptBox}>
-            <p style={styles.infoText}>{instruction}</p>
-            <div style={styles.promptTemplate}>
-              <pre style={styles.promptText}>{shareText}</pre>
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
+            <div style={s.promptTemplate}>
+              <pre style={s.promptText}>{shareText}</pre>
             </div>
-            <button style={styles.copyButton} onClick={() => copyToClipboard(shareText)}>
+            <button style={s.mintBtn} onClick={() => copyToClipboard(shareText)}>
               {copied ? '✅ 복사됨!' : '📋 내용 복사하기'}
             </button>
           </div>
@@ -255,15 +267,27 @@ export default function StudentView({ student }) {
 
       case 'paddlet_link':
         return (
-          <div style={styles.infoBox}>
-            <p style={styles.infoText}>{instruction}</p>
-            {paddletUrl ? (
-              <a href={paddletUrl} target="_blank" rel="noreferrer" style={styles.drawButton}>
-                패들렛 열기 →
-              </a>
-            ) : (
-              <p style={styles.waitText}>선생님이 패들렛 링크를 열면 버튼이 활성화됩니다</p>
-            )}
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
+            {paddletUrl
+              ? <a href={paddletUrl} target="_blank" rel="noreferrer" style={s.mintBtn}>패들렛 열기 →</a>
+              : <p style={s.waitText}>선생님이 패들렛 링크를 열면 버튼이 활성화됩니다</p>
+            }
+          </div>
+        )
+
+      case 'form_link':
+        return (
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLSfMnCqSdQVVhUrIse7Ao3rVnF0aQSzmd2dAzX1qpWUG0Fl6Cw/viewform?usp=dialog"
+              target="_blank"
+              rel="noreferrer"
+              style={{ ...s.mintBtn, background: '#FF6B6B', marginTop: '0' }}
+            >
+              📝 개발일지 작성하기
+            </a>
           </div>
         )
 
@@ -273,320 +297,126 @@ export default function StudentView({ student }) {
   }
 
   return (
-    <div style={styles.container}>
-      {/* 상단 헤더 */}
-      <div style={styles.header}>
-        <div style={styles.headerLeft}>
-          <span style={styles.studentName}>{student.studentName}</span>
-          {persona && <span style={styles.personaBadge}>👤 {persona.name}</span>}
+    <div style={s.container}>
+      <div style={s.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={s.studentName}>{student.studentName}</span>
+          {persona && <span style={s.personaBadge}>👤 {persona.name}</span>}
         </div>
-        <div style={styles.stepBadge}>
+        <div style={s.stepBadge}>
           {currentStepData?.title} · {session.current_substep + 1}/{currentStepData?.substeps.length}
         </div>
       </div>
 
-      {/* 진행 바 */}
-      <div style={styles.progressBar}>
-        {SESSION1_STEPS.map((s, idx) => (
-          <div
-            key={idx}
-            style={{
-              ...styles.progressSegment,
-              background: idx < session.current_step ? '#4ECDC4' :
-                idx === session.current_step ? '#FF6B6B' : '#e2e8f0'
-            }}
-          />
+      <div style={s.progressBar}>
+        {SESSION1_STEPS.map((_, idx) => (
+          <div key={idx} style={{
+            ...s.progressSegment,
+            background: idx < session.current_step ? '#4ECDC4' :
+              idx === session.current_step ? '#FF6B6B' : '#e2e8f0'
+          }} />
         ))}
       </div>
 
-      {/* 메인 콘텐츠 */}
-      <div style={styles.content}>
-        <div style={styles.stepTitle}>
-          <span style={styles.stepNumber}>{session.current_step + 1}</span>
+      <div style={s.content}>
+        <div style={s.stepTitle}>
+          <span style={s.stepNumber}>{session.current_step + 1}</span>
           {currentStepData?.title}
         </div>
-        {renderSubstep()}
+        {renderContent()}
       </div>
     </div>
   )
 }
 
-const styles = {
-  container: {
-    minHeight: '100vh',
-    background: '#f8fafc',
-  },
+const s = {
+  container: { minHeight: '100vh', background: '#f8fafc' },
   header: {
-    background: '#fff',
-    padding: '16px 20px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
+    background: '#fff', padding: '16px 20px',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.06)', position: 'sticky', top: 0, zIndex: 100,
   },
-  headerLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  studentName: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: '#1a1a2e',
-  },
+  studentName: { fontSize: '16px', fontWeight: '700', color: '#1a1a2e' },
   personaBadge: {
-    background: '#E0F7F5',
-    color: '#2BA39A',
-    padding: '4px 10px',
-    borderRadius: '20px',
-    fontSize: '13px',
-    fontWeight: '600',
+    background: '#E0F7F5', color: '#2BA39A',
+    padding: '4px 10px', borderRadius: '20px', fontSize: '13px', fontWeight: '600',
   },
   stepBadge: {
-    background: '#FF6B6B',
-    color: '#fff',
-    padding: '6px 14px',
-    borderRadius: '20px',
-    fontSize: '13px',
-    fontWeight: '700',
+    background: '#FF6B6B', color: '#fff',
+    padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: '700',
   },
-  progressBar: {
-    display: 'flex',
-    gap: '4px',
-    padding: '12px 20px',
-    background: '#fff',
-  },
-  progressSegment: {
-    flex: 1,
-    height: '6px',
-    borderRadius: '3px',
-    transition: 'background 0.3s',
-  },
-  content: {
-    padding: '20px',
-    maxWidth: '680px',
-    margin: '0 auto',
-  },
+  progressBar: { display: 'flex', gap: '4px', padding: '12px 20px', background: '#fff' },
+  progressSegment: { flex: 1, height: '6px', borderRadius: '3px', transition: 'background 0.3s' },
+  content: { padding: '20px', maxWidth: '680px', margin: '0 auto' },
   stepTitle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    fontSize: '20px',
-    fontWeight: '900',
-    color: '#1a1a2e',
-    marginBottom: '16px',
+    display: 'flex', alignItems: 'center', gap: '10px',
+    fontSize: '20px', fontWeight: '900', color: '#1a1a2e', marginBottom: '16px',
   },
   stepNumber: {
-    background: '#4ECDC4',
-    color: '#fff',
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '16px',
-    fontWeight: '900',
-    flexShrink: 0,
+    background: '#4ECDC4', color: '#fff', width: '32px', height: '32px',
+    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '16px', fontWeight: '900', flexShrink: 0,
   },
-  infoBox: {
-    background: '#fff',
-    borderRadius: '16px',
-    padding: '24px',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+  personaSideCard: {
+    background: '#fff', borderRadius: '16px', padding: '16px',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex',
+    gap: '14px', alignItems: 'flex-start', marginBottom: '12px', border: '2px solid #E0F7F5',
   },
-  infoText: {
-    fontSize: '17px',
-    lineHeight: '1.7',
-    color: '#334155',
-    marginBottom: '16px',
+  personaSideImage: { width: '80px', height: '80px', borderRadius: '12px', objectFit: 'cover', flexShrink: 0 },
+  personaSideInfo: { flex: 1 },
+  personaSideName: { fontSize: '18px', fontWeight: '900', color: '#1a1a2e' },
+  personaSideAge: { fontSize: '13px', color: '#64748b', marginTop: '2px' },
+  personaSideLocation: { fontSize: '12px', color: '#64748b', marginBottom: '6px' },
+  box: {
+    background: '#fff', borderRadius: '16px',
+    padding: '24px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
   },
-  drawButton: {
-    display: 'block',
-    width: '100%',
-    background: '#4ECDC4',
-    color: '#fff',
-    fontSize: '18px',
-    fontWeight: '700',
-    padding: '16px',
-    borderRadius: '12px',
-    textAlign: 'center',
-    textDecoration: 'none',
-    marginTop: '8px',
+  infoText: { fontSize: '17px', lineHeight: '1.7', color: '#334155', marginBottom: '16px' },
+  mintBtn: {
+    display: 'block', width: '100%', background: '#4ECDC4', color: '#fff',
+    fontSize: '17px', fontWeight: '700', padding: '15px', borderRadius: '12px',
+    textAlign: 'center', textDecoration: 'none', marginBottom: '10px', border: 'none', cursor: 'pointer',
   },
-  personaCard: {
-    marginTop: '16px',
-    border: '2px solid #E0F7F5',
-    borderRadius: '12px',
-    overflow: 'hidden',
+  grayBtn: {
+    display: 'block', width: '100%', background: '#f1f5f9', color: '#4ECDC4',
+    fontSize: '16px', fontWeight: '700', padding: '14px', borderRadius: '10px',
+    textAlign: 'center', textDecoration: 'none',
   },
-  personaImage: {
-    width: '100%',
-    height: '200px',
-    objectFit: 'cover',
-  },
-  personaInfo: {
-    padding: '16px',
-  },
-  personaName: {
-    fontSize: '22px',
-    fontWeight: '900',
-    color: '#1a1a2e',
-  },
-  personaAge: {
-    fontSize: '15px',
-    color: '#64748b',
-    marginTop: '4px',
-  },
-  personaLocation: {
-    fontSize: '14px',
-    color: '#64748b',
-    marginTop: '4px',
-    marginBottom: '12px',
-  },
-  personaSection: {
-    marginBottom: '10px',
-  },
+  personaCard: { marginTop: '16px', border: '2px solid #E0F7F5', borderRadius: '12px', overflow: 'hidden' },
+  personaImage: { width: '100%', height: '200px', objectFit: 'cover' },
+  personaInfo: { padding: '16px' },
+  personaName: { fontSize: '22px', fontWeight: '900', color: '#1a1a2e' },
+  personaAge: { fontSize: '15px', color: '#64748b', marginTop: '4px' },
+  personaLocation: { fontSize: '14px', color: '#64748b', marginTop: '4px', marginBottom: '12px' },
+  section: { marginBottom: '10px' },
   sectionLabel: {
-    fontSize: '11px',
-    fontWeight: '700',
-    color: '#4ECDC4',
-    letterSpacing: '1px',
-    textTransform: 'uppercase',
-    display: 'block',
-    marginBottom: '4px',
+    fontSize: '11px', fontWeight: '700', color: '#4ECDC4',
+    letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '4px',
   },
-  sectionText: {
-    fontSize: '14px',
-    color: '#334155',
-    lineHeight: '1.6',
-  },
+  sectionText: { fontSize: '14px', color: '#334155', lineHeight: '1.6' },
   painBox: {
-    background: '#FFE5E5',
-    borderLeft: '4px solid #FF6B6B',
-    padding: '12px',
-    borderRadius: '0 8px 8px 0',
-    marginTop: '12px',
+    background: '#FFE5E5', borderLeft: '4px solid #FF6B6B',
+    padding: '12px', borderRadius: '0 8px 8px 0', marginTop: '8px',
   },
-  painLabel: {
-    fontSize: '11px',
-    fontWeight: '700',
-    color: '#FF6B6B',
-    display: 'block',
-    marginBottom: '4px',
-  },
-  painText: {
-    fontSize: '14px',
-    color: '#334155',
-    lineHeight: '1.6',
-    fontStyle: 'italic',
-  },
-  personaMini: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    background: '#E0F7F5',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    marginBottom: '12px',
-  },
-  personaMiniImage: {
-    width: '36px',
-    height: '36px',
-    borderRadius: '50%',
-    objectFit: 'cover',
-  },
-  personaMiniName: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#2BA39A',
-  },
-  inputBox: {
-    background: '#fff',
-    borderRadius: '16px',
-    padding: '24px',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-  },
+  painLabel: { fontSize: '11px', fontWeight: '700', color: '#FF6B6B', display: 'block', marginBottom: '4px' },
+  painText: { fontSize: '13px', color: '#334155', lineHeight: '1.6', fontStyle: 'italic' },
   textarea: {
-    width: '100%',
-    padding: '14px',
-    fontSize: '16px',
-    border: '2px solid #e2e8f0',
-    borderRadius: '10px',
-    resize: 'vertical',
-    lineHeight: '1.6',
-    marginTop: '8px',
+    width: '100%', padding: '14px', fontSize: '16px',
+    border: '2px solid #e2e8f0', borderRadius: '10px',
+    resize: 'vertical', lineHeight: '1.6', marginTop: '8px', fontFamily: 'inherit',
   },
-  promptBox: {
-    background: '#fff',
-    borderRadius: '16px',
-    padding: '24px',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-  },
-  promptTemplate: {
-    background: '#f1f5f9',
-    borderRadius: '10px',
-    padding: '16px',
-    margin: '12px 0',
-  },
-  promptText: {
-    fontSize: '14px',
-    lineHeight: '1.8',
-    color: '#334155',
-    whiteSpace: 'pre-wrap',
-    fontFamily: 'inherit',
-  },
-  copyButton: {
-    width: '100%',
-    background: '#4ECDC4',
-    color: '#fff',
-    fontSize: '16px',
-    fontWeight: '700',
-    padding: '14px',
-    borderRadius: '10px',
-    marginBottom: '10px',
-  },
-  linkButton: {
-    display: 'block',
-    width: '100%',
-    background: '#f1f5f9',
-    color: '#4ECDC4',
-    fontSize: '16px',
-    fontWeight: '700',
-    padding: '14px',
-    borderRadius: '10px',
-    textAlign: 'center',
-    textDecoration: 'none',
-  },
+  promptTemplate: { background: '#f1f5f9', borderRadius: '10px', padding: '16px', margin: '12px 0' },
+  promptText: { fontSize: '14px', lineHeight: '1.8', color: '#334155', whiteSpace: 'pre-wrap', fontFamily: 'inherit' },
   checkLabel: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '10px',
-    padding: '12px',
-    background: '#f8fafc',
-    borderRadius: '8px',
-    marginBottom: '8px',
-    cursor: 'pointer',
+    display: 'flex', alignItems: 'flex-start', gap: '10px',
+    padding: '12px', background: '#f8fafc', borderRadius: '8px', marginBottom: '8px', cursor: 'pointer',
   },
-  checkbox: {
-    width: '20px',
-    height: '20px',
-    marginTop: '2px',
-    flexShrink: 0,
-    accentColor: '#4ECDC4',
-  },
-  checkText: {
-    fontSize: '15px',
-    color: '#334155',
-    lineHeight: '1.5',
-  },
-  waitText: {
-    textAlign: 'center',
-    color: '#94a3b8',
-    fontSize: '15px',
-    padding: '16px',
+  checkbox: { width: '20px', height: '20px', marginTop: '2px', flexShrink: 0, accentColor: '#4ECDC4' },
+  checkText: { fontSize: '15px', color: '#334155', lineHeight: '1.5' },
+  waitText: { textAlign: 'center', color: '#94a3b8', fontSize: '15px', padding: '16px' },
+  aiButtons: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' },
+  aiBtn: {
+    display: 'block', color: '#fff', fontSize: '15px', fontWeight: '700',
+    padding: '12px', borderRadius: '10px', textAlign: 'center', textDecoration: 'none',
   },
 }

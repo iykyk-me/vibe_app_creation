@@ -12,18 +12,46 @@ export default function TeacherView() {
   const [session, setSession] = useState({ current_step: 0, current_substep: 0 })
   const [paddletUrl, setPaddletUrl] = useState('')
   const [saving, setSaving] = useState(false)
+  const [studentCount, setStudentCount] = useState(0)
+  const [answeredCount, setAnsweredCount] = useState(0)
 
   useEffect(() => {
     if (authenticated) {
       fetchSession()
+      fetchStats()
+      const interval = setInterval(fetchStats, 5000)
+      return () => clearInterval(interval)
     }
-  }, [authenticated])
+  }, [authenticated, session.current_step, session.current_substep])
 
   const fetchSession = async () => {
     const { data } = await supabase.from('session').select('*').eq('id', 1).single()
     if (data) {
       setSession(data)
       setPaddletUrl(data.paddlet_url || '')
+    }
+  }
+
+  const fetchStats = async () => {
+    // 로그인한 학생 수
+    const { count: total } = await supabase
+      .from('students')
+      .select('*', { count: 'exact', head: true })
+    setStudentCount(total || 0)
+
+    // 현재 단계에서 입력 완료한 학생 수
+    const currentSubstep = SESSION1_STEPS[session.current_step]?.substeps[session.current_substep]
+    if (currentSubstep?.field) {
+      const { data: progressData } = await supabase
+        .from('student_progress')
+        .select('data')
+        .eq('session_num', 1)
+      const answered = (progressData || []).filter(p =>
+        p.data && p.data[currentSubstep.field] && p.data[currentSubstep.field].trim() !== ''
+      ).length
+      setAnsweredCount(answered)
+    } else {
+      setAnsweredCount(0)
     }
   }
 
@@ -134,6 +162,21 @@ export default function TeacherView() {
           <div style={styles.subInstruction}>
             {currentStepData?.substeps[session.current_substep]?.instruction}
           </div>
+          {currentStepData?.substeps[session.current_substep]?.field && (
+            <div style={styles.responseBox}>
+              <span style={styles.responseLabel}>학생 응답 현황</span>
+              <div style={styles.responseCount}>
+                <span style={styles.answeredNum}>{answeredCount}</span>
+                <span style={styles.totalNum}> / {studentCount}명</span>
+              </div>
+              <div style={styles.responseBar}>
+                <div style={{
+                  ...styles.responseBarFill,
+                  width: studentCount > 0 ? `${(answeredCount / studentCount) * 100}%` : '0%'
+                }} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 이전/다음 버튼 */}
@@ -388,6 +431,28 @@ const styles = {
     border: 'none',
     cursor: 'pointer',
     fontFamily: 'inherit',
+  },
+  responseBox: {
+    marginTop: '12px',
+    background: '#f0fdf9',
+    borderRadius: '10px',
+    padding: '12px',
+    border: '1px solid #4ECDC4',
+  },
+  responseLabel: {
+    fontSize: '11px', fontWeight: '700', color: '#2BA39A',
+    letterSpacing: '1px', display: 'block', marginBottom: '6px',
+  },
+  responseCount: { display: 'flex', alignItems: 'baseline', marginBottom: '8px' },
+  answeredNum: { fontSize: '28px', fontWeight: '900', color: '#4ECDC4' },
+  totalNum: { fontSize: '14px', color: '#94a3b8' },
+  responseBar: {
+    height: '8px', background: '#e2e8f0',
+    borderRadius: '4px', overflow: 'hidden',
+  },
+  responseBarFill: {
+    height: '100%', background: '#4ECDC4',
+    borderRadius: '4px', transition: 'width 0.5s ease',
   },
   resetBtn: {
     background: '#fff',

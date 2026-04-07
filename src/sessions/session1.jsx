@@ -24,6 +24,7 @@ export const SESSION1_STEPS = [
         substep: 0,
         instruction: '내가 뽑은 페르소나가 언남동에서 겪을 불편함을 상상해보세요. 이 사람의 입장이 되어 생각해보세요!',
         type: 'info',
+        showPersona: true,
       },
       {
         substep: 1,
@@ -31,6 +32,7 @@ export const SESSION1_STEPS = [
         type: 'input',
         field: 'discomfort_1',
         placeholder: '예) 버스가 언제 오는지 몰라서 오래 기다렸다',
+        showPersona: true,
       },
       {
         substep: 2,
@@ -38,24 +40,18 @@ export const SESSION1_STEPS = [
         type: 'input',
         field: 'discomfort_2',
         placeholder: '예) 근처 병원 정보를 찾기 어렵다',
+        showPersona: true,
       },
       {
         substep: 3,
-        instruction: '이 사람이 겪을 불편함 세 번째를 적어보세요',
-        type: 'input',
-        field: 'discomfort_3',
-        placeholder: '예) 마트 할인 정보를 미리 알 수 없다',
-      },
-      {
-        substep: 4,
-        instruction: '아래 프롬프트의 빈칸을 채워서 Claude에 복사·붙여넣기 하세요',
-        type: 'prompt_copy',
+        instruction: '아래 프롬프트의 빈칸을 채워서 인공지능에 복사·붙여넣기 하세요',
+        type: 'prompt_copy_ai',
+        showPersona: true,
         promptTemplate: `너는 언남동에 사는 [  ]살 [  ]이야.
 내가 찾은 불편함:
 - [불편함 ①]
 - [불편함 ②]
-- [불편함 ③]
-위 내용과 겹치지 않는 불편한 점 5가지를 더 찾아줘.`,
+위 내용과 겹치지 않는 불편한 점 3가지를 더 찾아줘.`,
       },
     ]
   },
@@ -65,26 +61,23 @@ export const SESSION1_STEPS = [
     substeps: [
       {
         substep: 0,
-        instruction: 'Claude가 찾아준 불편함을 아래에 입력하세요',
+        instruction: '인공지능이 찾아준 불편함을 아래에 입력하세요',
         type: 'info',
+        showPersona: true,
       },
-      { substep: 1, instruction: 'AI가 찾은 불편함 ①', type: 'input', field: 'ai_discomfort_1', placeholder: 'Claude 답변에서 복사해서 붙여넣기' },
-      { substep: 2, instruction: 'AI가 찾은 불편함 ②', type: 'input', field: 'ai_discomfort_2', placeholder: 'Claude 답변에서 복사해서 붙여넣기' },
-      { substep: 3, instruction: 'AI가 찾은 불편함 ③', type: 'input', field: 'ai_discomfort_3', placeholder: 'Claude 답변에서 복사해서 붙여넣기' },
-      { substep: 4, instruction: 'AI가 찾은 불편함 ④', type: 'input', field: 'ai_discomfort_4', placeholder: 'Claude 답변에서 복사해서 붙여넣기' },
-      { substep: 5, instruction: 'AI가 찾은 불편함 ⑤', type: 'input', field: 'ai_discomfort_5', placeholder: 'Claude 답변에서 복사해서 붙여넣기' },
+      { substep: 1, instruction: 'AI가 찾은 불편함 ①', type: 'input', field: 'ai_discomfort_1', placeholder: '인공지능 답변에서 복사해서 붙여넣기', showPersona: true },
+      { substep: 2, instruction: 'AI가 찾은 불편함 ②', type: 'input', field: 'ai_discomfort_2', placeholder: '인공지능 답변에서 복사해서 붙여넣기', showPersona: true },
+      { substep: 3, instruction: 'AI가 찾은 불편함 ③', type: 'input', field: 'ai_discomfort_3', placeholder: '인공지능 답변에서 복사해서 붙여넣기', showPersona: true },
       {
-        substep: 6,
-        instruction: '아래 프롬프트의 빈칸을 채워서 Claude에 복사·붙여넣기 하세요',
-        type: 'prompt_copy',
+        substep: 4,
+        instruction: '아래 프롬프트의 빈칸을 채워서 인공지능에 복사·붙여넣기 하세요',
+        type: 'prompt_copy_ai',
+        showPersona: true,
         promptTemplate: `너는 [  ]야.
 아래 불편함 중 스마트폰 앱으로 해결할 수 있는 것과
 어려운 것을 구분하고 이유도 알려줘.
 - [불편함 ①]
 - [불편함 ②]
-- [불편함 ③]
-- 
-- 
 - 
 - 
 - `,
@@ -97,7 +90,7 @@ export const SESSION1_STEPS = [
     substeps: [
       {
         substep: 0,
-        instruction: 'Claude 결과를 보고 앱으로 해결할 수 있는 불편함에 체크하세요',
+        instruction: '인공지능 결과를 보고 앱으로 해결할 수 있는 불편함에 체크하세요',
         type: 'info',
       },
       {
@@ -148,6 +141,12 @@ export const SESSION1_STEPS = [
         substep: 2,
         instruction: '패들렛에 접속해서 내 문제를 올리세요',
         type: 'paddlet_link',
+      },
+      {
+        substep: 3,
+        instruction: '오늘 수업 개발일지를 작성해주세요!',
+        type: 'form_link',
+        formUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSfMnCqSdQVVhUrIse7Ao3rVnF0aQSzmd2dAzX1qpWUG0Fl6Cw/viewform?usp=dialog',
       },
     ]
   },
