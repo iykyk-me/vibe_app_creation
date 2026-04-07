@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { SESSION1_STEPS } from '../sessions/session1'
 import StudentView from './StudentView'
@@ -14,6 +14,7 @@ export default function TeacherView() {
   const [saving, setSaving] = useState(false)
   const [studentCount, setStudentCount] = useState(0)
   const [answeredCount, setAnsweredCount] = useState(0)
+  const sessionRef = useRef({ current_step: 0, current_substep: 0 })
 
   useEffect(() => {
     if (authenticated) {
@@ -23,15 +24,19 @@ export default function TeacherView() {
   }, [authenticated])
 
   useEffect(() => {
+    sessionRef.current = session
+  }, [session])
+
+  useEffect(() => {
     if (!authenticated) return
     fetchStats()
     const channel = supabase
       .channel('progress_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'student_progress' }, () => {
-        fetchStats(session)
+        fetchStats()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
-        fetchStats(session)
+        fetchStats()
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
@@ -45,8 +50,8 @@ export default function TeacherView() {
     }
   }
 
-  const fetchStats = async (currentSession) => {
-    const s = currentSession || session
+  const fetchStats = async () => {
+    const s = sessionRef.current
 
     // 로그인한 학생 수
     const { data: studentData } = await supabase
