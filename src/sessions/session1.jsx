@@ -44,14 +44,29 @@ export const SESSION1_STEPS = [
       },
       {
         substep: 3,
-        instruction: '아래 프롬프트의 빈칸을 채워서 인공지능에 복사·붙여넣기 하세요',
-        type: 'prompt_copy_ai',
+        instruction: '빈칸을 채우고 복사해서 인공지능에 붙여넣기 하세요',
+        type: 'prompt_editable_ai',
         showPersona: true,
-        promptTemplate: `너는 언남동에 사는 [  ]살 [  ]이야.
+        fields: [
+          { key: 'prompt_age', placeholder: '나이 입력 (예: 72)', inline: true },
+          { key: 'prompt_job', placeholder: '직업 입력 (예: 할머니)', inline: true },
+        ],
+        autoFill: ['discomfort_1', 'discomfort_2'],
+        templateParts: [
+          '너는 언남동에 사는 ',
+          { field: 'prompt_age' },
+          '살 ',
+          { field: 'prompt_job' },
+          '이야.
 내가 찾은 불편함:
-- [불편함 ①]
-- [불편함 ②]
-위 내용과 겹치지 않는 불편한 점 3가지를 더 찾아줘.`,
+- ',
+          { auto: 'discomfort_1' },
+          '
+- ',
+          { auto: 'discomfort_2' },
+          '
+위 내용과 겹치지 않는 불편한 점 3가지를 더 찾아줘.',
+        ],
       },
     ]
   },
@@ -70,17 +85,34 @@ export const SESSION1_STEPS = [
       { substep: 3, instruction: 'AI가 찾은 불편함 ③', type: 'input', field: 'ai_discomfort_3', placeholder: '인공지능 답변에서 복사해서 붙여넣기', showPersona: true },
       {
         substep: 4,
-        instruction: '아래 프롬프트의 빈칸을 채워서 인공지능에 복사·붙여넣기 하세요',
-        type: 'prompt_copy_ai',
+        instruction: '아래 프롬프트를 복사해서 인공지능에 붙여넣기 하세요',
+        type: 'prompt_editable_ai',
         showPersona: true,
-        promptTemplate: `너는 [  ]야.
+        fields: [],
+        autoFill: ['discomfort_1', 'discomfort_2', 'ai_discomfort_1', 'ai_discomfort_2', 'ai_discomfort_3'],
+        templateParts: [
+          '너는 언남동에 사는 ',
+          { auto: 'prompt_age' },
+          '살 ',
+          { auto: 'prompt_job' },
+          '이야.
 아래 불편함 중 스마트폰 앱으로 해결할 수 있는 것과
 어려운 것을 구분하고 이유도 알려줘.
-- [불편함 ①]
-- [불편함 ②]
-- 
-- 
-- `,
+- ',
+          { auto: 'discomfort_1' },
+          '
+- ',
+          { auto: 'discomfort_2' },
+          '
+- ',
+          { auto: 'ai_discomfort_1' },
+          '
+- ',
+          { auto: 'ai_discomfort_2' },
+          '
+- ',
+          { auto: 'ai_discomfort_3' },
+        ],
       },
     ]
   },

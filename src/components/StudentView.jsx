@@ -237,7 +237,6 @@ export default function StudentView({ student }) {
         )
 
       case 'prompt_copy':
-      case 'prompt_copy_ai':
         return (
           <div style={s.box}>
             <p style={s.infoText}>{instruction}</p>
@@ -245,6 +244,61 @@ export default function StudentView({ student }) {
               <pre style={s.promptText}>{promptTemplate}</pre>
             </div>
             <button style={s.mintBtn} onClick={() => copyToClipboard(promptTemplate)}>
+              {copied ? '✅ 복사됨!' : '📋 프롬프트 복사하기'}
+            </button>
+          </div>
+        )
+
+      case 'prompt_copy_ai': {
+        // 1단계 프롬프트: 나이/직업 입력, 불편함 자동완성
+        // 2단계 프롬프트: 불편함 모두 자동완성
+        const isStep1 = session.current_step === 1
+        const builtPrompt = isStep1
+          ? `너는 언남동에 사는 ${progress.persona_age || '[나이]'}살 ${progress.persona_job || '[직업]'}이야.
+내가 찾은 불편함:
+- ${progress.discomfort_1 || '[불편함 ①]'}
+- ${progress.discomfort_2 || '[불편함 ②]'}
+위 내용과 겹치지 않는 불편한 점 3가지를 더 찾아줘.`
+          : `너는 언남동에 사는 ${progress.persona_age || '[나이]'}살 ${progress.persona_job || '[직업]'}이야.
+아래 불편함 중 스마트폰 앱으로 해결할 수 있는 것과
+어려운 것을 구분하고 이유도 알려줘.
+- ${progress.discomfort_1 || '[불편함 ①]'}
+- ${progress.discomfort_2 || '[불편함 ②]'}
+- ${progress.ai_discomfort_1 || ''}
+- ${progress.ai_discomfort_2 || ''}
+- ${progress.ai_discomfort_3 || ''}`
+
+        return (
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
+
+            {isStep1 && (
+              <div style={s.promptInputRow}>
+                <div style={s.promptInputGroup}>
+                  <label style={s.promptInputLabel}>나이</label>
+                  <input
+                    style={s.promptInput}
+                    placeholder="예) 72"
+                    value={progress.persona_age || ''}
+                    onChange={e => saveProgress('persona_age', e.target.value)}
+                  />
+                </div>
+                <div style={s.promptInputGroup}>
+                  <label style={s.promptInputLabel}>직업</label>
+                  <input
+                    style={s.promptInput}
+                    placeholder="예) 할머니"
+                    value={progress.persona_job || ''}
+                    onChange={e => saveProgress('persona_job', e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div style={s.promptTemplate}>
+              <pre style={s.promptText}>{builtPrompt}</pre>
+            </div>
+            <button style={s.mintBtn} onClick={() => copyToClipboard(builtPrompt)}>
               {copied ? '✅ 복사됨!' : '📋 프롬프트 복사하기'}
             </button>
             <div style={s.aiButtons}>
@@ -262,6 +316,7 @@ export default function StudentView({ student }) {
             </div>
           </div>
         )
+      }
 
       case 'checkbox':
         return (
@@ -331,6 +386,64 @@ export default function StudentView({ student }) {
             }
           </div>
         )
+
+      case 'prompt_editable_ai': {
+        const editFields = currentSubstepData?.fields || []
+        const templateParts = currentSubstepData?.templateParts || []
+
+        // 완성된 프롬프트 문자열 생성
+        const buildPrompt = () => {
+          return templateParts.map(part => {
+            if (typeof part === 'string') return part
+            if (part.field) return progress[part.field] || `[${part.field}]`
+            if (part.auto) return progress[part.auto] || `[${part.auto}]`
+            return ''
+          }).join('')
+        }
+
+        return (
+          <div style={s.box}>
+            <p style={s.infoText}>{instruction}</p>
+
+            {/* 편집 가능한 입력창 */}
+            {editFields.length > 0 && (
+              <div style={s.editFieldsRow}>
+                {editFields.map(f => (
+                  <input
+                    key={f.key}
+                    style={s.inlineInput}
+                    placeholder={f.placeholder}
+                    value={progress[f.key] || ''}
+                    onChange={e => saveProgress(f.key, e.target.value)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* 완성된 프롬프트 미리보기 */}
+            <div style={s.promptTemplate}>
+              <pre style={s.promptText}>{buildPrompt()}</pre>
+            </div>
+
+            <button style={s.mintBtn} onClick={() => copyToClipboard(buildPrompt())}>
+              {copied ? '✅ 복사됨!' : '📋 프롬프트 복사하기'}
+            </button>
+            <div style={s.aiButtons}>
+              {[
+                { name: 'Claude', url: 'https://claude.ai', color: '#D97706' },
+                { name: 'ChatGPT', url: 'https://chat.openai.com', color: '#10A37F' },
+                { name: 'Gemini', url: 'https://gemini.google.com', color: '#4285F4' },
+                { name: '뤼튼', url: 'https://wrtn.ai', color: '#6366F1' },
+              ].map(ai => (
+                <a key={ai.name} href={ai.url} target="_blank" rel="noreferrer"
+                  style={{ ...s.aiBtn, background: ai.color }}>
+                  {ai.name} 열기
+                </a>
+              ))}
+            </div>
+          </div>
+        )
+      }
 
       case 'form_link':
         return (
@@ -486,7 +599,27 @@ const s = {
     display: 'block', marginBottom: '4px',
   },
   myAnswerText: { fontSize: '15px', color: '#334155', lineHeight: '1.6' },
+  editFieldsRow: { display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' },
+  inlineInput: {
+    flex: 1, minWidth: '140px', padding: '10px 14px', fontSize: '16px',
+    border: '2px solid #4ECDC4', borderRadius: '10px', fontFamily: 'inherit',
+    outline: 'none', background: '#f0fdf9',
+  },
   aiButtons: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' },
+  personaFillRow: { display: 'flex', gap: '10px', marginBottom: '12px' },
+  fillItem: { flex: 1 },
+  fillLabel: { fontSize: '12px', fontWeight: '700', color: '#4ECDC4', display: 'block', marginBottom: '4px' },
+  fillInput: {
+    width: '100%', padding: '10px 12px', fontSize: '15px',
+    border: '2px solid #4ECDC4', borderRadius: '8px', fontFamily: 'inherit',
+  },
+  promptInputRow: { display: 'flex', gap: '12px', marginBottom: '12px' },
+  promptInputGroup: { flex: 1 },
+  promptInputLabel: { display: 'block', fontSize: '12px', fontWeight: '700', color: '#4ECDC4', marginBottom: '6px' },
+  promptInput: {
+    width: '100%', padding: '10px 12px', fontSize: '16px',
+    border: '2px solid #e2e8f0', borderRadius: '8px', fontFamily: 'inherit',
+  },
   aiBtn: {
     display: 'block', color: '#fff', fontSize: '15px', fontWeight: '700',
     padding: '12px', borderRadius: '10px', textAlign: 'center', textDecoration: 'none',
