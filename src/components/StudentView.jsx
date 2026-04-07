@@ -18,6 +18,14 @@ export default function StudentView({ student }) {
     const channel = supabase
       .channel('session_changes')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'session' }, payload => {
+        // 초기화 감지 시 로컬스토리지 지우고 새로고침
+        if (payload.new.reset_at && payload.new.reset_at !== payload.old?.reset_at) {
+          localStorage.removeItem('student_id')
+          localStorage.removeItem('student_number')
+          localStorage.removeItem('student_name')
+          window.location.reload()
+          return
+        }
         setSession(payload.new)
         if (payload.new.paddlet_url) setPaddletUrl(payload.new.paddlet_url)
         setSubmitted(false)
@@ -40,7 +48,7 @@ export default function StudentView({ student }) {
   const fetchPersona = async () => {
     const { data } = await supabase
       .from('personas').select('*')
-      .eq('assigned_to', student.studentId).single()
+      .eq('assigned_to', student.studentId).maybeSingle()
     if (data) setPersona(data)
   }
 

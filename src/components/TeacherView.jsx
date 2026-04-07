@@ -110,10 +110,18 @@ export default function TeacherView() {
   }
 
   const resetPersonas = async () => {
-    if (!window.confirm('페르소나 배정을 초기화할까요?')) return
+    if (!window.confirm('페르소나 배정 및 모든 학생 데이터를 초기화할까요?')) return
     await supabase.from('personas').update({ assigned_to: null }).neq('id', 0)
-    await supabase.from('session').update({ current_step: 0, current_substep: 0 }).eq('id', 1)
+    await supabase.from('student_progress').delete().neq('student_id', '')
+    await supabase.from('students').delete().neq('student_id', '')
+    await supabase.from('session').update({ 
+      current_step: 0, 
+      current_substep: 0,
+      reset_at: new Date().toISOString()
+    }).eq('id', 1)
     setSession({ current_step: 0, current_substep: 0 })
+    setStudentCount(0)
+    setAnsweredCount(0)
     alert('초기화 완료!')
   }
 
