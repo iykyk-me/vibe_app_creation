@@ -141,17 +141,18 @@ export default function StudentView({ student }) {
 
   const renderContent = () => {
     if (!currentSubstepData) return null
-    const { type, instruction, field, placeholder, promptTemplate, showPersona } = currentSubstepData
+    const { showPersona } = currentSubstepData
 
     return (
       <div>
         {showPersona && <PersonaSideCard />}
-        {renderBlock(type, instruction, field, placeholder, promptTemplate)}
+        {renderBlock(currentSubstepData)}
       </div>
     )
   }
 
-  const renderBlock = (type, instruction, field, placeholder, promptTemplate) => {
+  const renderBlock = (substepData) => {
+    const { type, instruction, field, placeholder, promptTemplate } = substepData
     switch (type) {
       case 'info':
         return (
@@ -388,8 +389,8 @@ export default function StudentView({ student }) {
         )
 
       case 'prompt_editable_ai': {
-        const editFields = currentSubstepData?.fields || []
-        const templateParts = currentSubstepData?.templateParts || []
+        const editFields = substepData?.fields || []
+        const templateParts = substepData?.templateParts || []
 
         // 완성된 프롬프트 문자열 생성
         const buildPrompt = () => {
