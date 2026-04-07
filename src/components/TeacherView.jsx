@@ -17,21 +17,17 @@ export default function TeacherView() {
   const sessionRef = useRef({ current_step: 0, current_substep: 0 })
 
   useEffect(() => {
-    if (authenticated) {
-      fetchSession()
-      fetchStats()
-    }
-  }, [authenticated])
-
-  useEffect(() => {
     sessionRef.current = session
   }, [session])
 
   useEffect(() => {
     if (!authenticated) return
+    fetchSession()
     fetchStats()
+
+    // 구독은 한 번만 생성
     const channel = supabase
-      .channel('progress_changes')
+      .channel('teacher_progress')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'student_progress' }, () => {
         fetchStats()
       })
@@ -39,8 +35,15 @@ export default function TeacherView() {
         fetchStats()
       })
       .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [authenticated, session.current_step, session.current_substep])
+
+    // 5초 폴링 백업
+    const interval = setInterval(fetchStats, 5000)
+
+    return () => {
+      supabase.removeChannel(channel)
+      clearInterval(interval)
+    }
+  }, [authenticated])
 
   const fetchSession = async () => {
     const { data } = await supabase.from('session').select('*').eq('id', 1).single()
