@@ -18,14 +18,6 @@ export default function StudentView({ student }) {
     const channel = supabase
       .channel('session_changes')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'session' }, payload => {
-        // 초기화 감지 시 로컬스토리지 지우고 새로고침
-        if (payload.new.reset_at && payload.new.reset_at !== payload.old?.reset_at) {
-          localStorage.removeItem('student_id')
-          localStorage.removeItem('student_number')
-          localStorage.removeItem('student_name')
-          window.location.reload()
-          return
-        }
         setSession(payload.new)
         if (payload.new.paddlet_url) setPaddletUrl(payload.new.paddlet_url)
         setSubmitted(false)
@@ -38,11 +30,34 @@ export default function StudentView({ student }) {
     fetchPersona()
     fetchProgress()
     fetchPaddletUrl()
+    checkReset()
+    const resetInterval = setInterval(checkReset, 3000)
+    return () => clearInterval(resetInterval)
   }, [])
 
   const fetchSession = async () => {
     const { data } = await supabase.from('session').select('*').eq('id', 1).single()
-    if (data) setSession(data)
+    if (data) {
+      setSession(data)
+      if (data.paddlet_url) setPaddletUrl(data.paddlet_url)
+    }
+  }
+
+  const lastResetRef = React.useRef(null)
+
+  const checkReset = async () => {
+    const { data } = await supabase.from('session').select('reset_at').eq('id', 1).single()
+    if (!data) return
+    if (lastResetRef.current === null) {
+      lastResetRef.current = data.reset_at
+      return
+    }
+    if (data.reset_at && data.reset_at !== lastResetRef.current) {
+      localStorage.removeItem('student_id')
+      localStorage.removeItem('student_number')
+      localStorage.removeItem('student_name')
+      window.location.reload()
+    }
   }
 
   const fetchPersona = async () => {
