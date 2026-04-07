@@ -25,8 +25,16 @@ export default function TeacherView() {
   useEffect(() => {
     if (!authenticated) return
     fetchStats()
-    const interval = setInterval(fetchStats, 5000)
-    return () => clearInterval(interval)
+    const channel = supabase
+      .channel('progress_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_progress' }, () => {
+        fetchStats()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
+        fetchStats()
+      })
+      .subscribe()
+    return () => supabase.removeChannel(channel)
   }, [authenticated, session.current_step, session.current_substep])
 
   const fetchSession = async () => {
