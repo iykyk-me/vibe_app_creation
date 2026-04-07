@@ -18,15 +18,14 @@ export default function LoginScreen({ onLogin }) {
     const studentId = `${studentNumber.trim()}_${studentName.trim()}`
 
     try {
-      // 기존 학생 확인
+      // 기존 학생 확인 후 없으면 등록
       const { data: existing } = await supabase
         .from('students')
         .select('*')
         .eq('student_id', studentId)
-        .single()
+        .maybeSingle()
 
       if (!existing) {
-        // 새 학생 등록
         await supabase.from('students').insert({
           student_id: studentId,
           student_number: studentNumber.trim(),
