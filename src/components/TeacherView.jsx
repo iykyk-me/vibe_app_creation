@@ -28,10 +28,10 @@ export default function TeacherView() {
     const channel = supabase
       .channel('progress_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'student_progress' }, () => {
-        fetchStats()
+        fetchStats(session)
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
-        fetchStats()
+        fetchStats(session)
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
@@ -45,7 +45,9 @@ export default function TeacherView() {
     }
   }
 
-  const fetchStats = async () => {
+  const fetchStats = async (currentSession) => {
+    const s = currentSession || session
+
     // 로그인한 학생 수
     const { data: studentData } = await supabase
       .from('students')
@@ -53,24 +55,19 @@ export default function TeacherView() {
     setStudentCount(studentData?.length || 0)
 
     // 현재 단계에서 입력 완료한 학생 수
-    setSession(prev => {
-      const currentSubstep = SESSION1_STEPS[prev.current_step]?.substeps[prev.current_substep]
-      if (currentSubstep?.field) {
-        supabase
-          .from('student_progress')
-          .select('data')
-          .eq('session_num', 1)
-          .then(({ data: progressData }) => {
-            const answered = (progressData || []).filter(p =>
-              p.data && p.data[`${currentSubstep.field}_submitted`] === true
-            ).length
-            setAnsweredCount(answered)
-          })
-      } else {
-        setAnsweredCount(0)
-      }
-      return prev
-    })
+    const currentSubstep = SESSION1_STEPS[s.current_step]?.substeps[s.current_substep]
+    if (currentSubstep?.field) {
+      const { data: progressData } = await supabase
+        .from('student_progress')
+        .select('data')
+        .eq('session_num', 1)
+      const answered = (progressData || []).filter(p =>
+        p.data && p.data[`${currentSubstep.field}_submitted`] === true
+      ).length
+      setAnsweredCount(answered)
+    } else {
+      setAnsweredCount(0)
+    }
   }
 
   const handleLogin = () => {
