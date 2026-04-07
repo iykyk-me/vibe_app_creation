@@ -19,9 +19,14 @@ export default function TeacherView() {
     if (authenticated) {
       fetchSession()
       fetchStats()
-      const interval = setInterval(fetchStats, 5000)
-      return () => clearInterval(interval)
     }
+  }, [authenticated])
+
+  useEffect(() => {
+    if (!authenticated) return
+    fetchStats()
+    const interval = setInterval(fetchStats, 5000)
+    return () => clearInterval(interval)
   }, [authenticated, session.current_step, session.current_substep])
 
   const fetchSession = async () => {
@@ -34,25 +39,30 @@ export default function TeacherView() {
 
   const fetchStats = async () => {
     // 로그인한 학생 수
-    const { count: total } = await supabase
+    const { data: studentData } = await supabase
       .from('students')
-      .select('*', { count: 'exact', head: true })
-    setStudentCount(total || 0)
+      .select('student_id')
+    setStudentCount(studentData?.length || 0)
 
     // 현재 단계에서 입력 완료한 학생 수
-    const currentSubstep = SESSION1_STEPS[session.current_step]?.substeps[session.current_substep]
-    if (currentSubstep?.field) {
-      const { data: progressData } = await supabase
-        .from('student_progress')
-        .select('data')
-        .eq('session_num', 1)
-      const answered = (progressData || []).filter(p =>
-        p.data && p.data[currentSubstep.field] && p.data[currentSubstep.field].trim() !== ''
-      ).length
-      setAnsweredCount(answered)
-    } else {
-      setAnsweredCount(0)
-    }
+    setSession(prev => {
+      const currentSubstep = SESSION1_STEPS[prev.current_step]?.substeps[prev.current_substep]
+      if (currentSubstep?.field) {
+        supabase
+          .from('student_progress')
+          .select('data')
+          .eq('session_num', 1)
+          .then(({ data: progressData }) => {
+            const answered = (progressData || []).filter(p =>
+              p.data && p.data[`${currentSubstep.field}_submitted`] === true
+            ).length
+            setAnsweredCount(answered)
+          })
+      } else {
+        setAnsweredCount(0)
+      }
+      return prev
+    })
   }
 
   const handleLogin = () => {

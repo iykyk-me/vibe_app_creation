@@ -11,6 +11,7 @@ export default function StudentView({ student }) {
   const [checkedItems, setCheckedItems] = useState([])
   const [selectedItem, setSelectedItem] = useState('')
   const [paddletUrl, setPaddletUrl] = useState('')
+  const [submitted, setSubmitted] = useState(false)
 
   useEffect(() => {
     fetchSession()
@@ -19,6 +20,7 @@ export default function StudentView({ student }) {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'session' }, payload => {
         setSession(payload.new)
         if (payload.new.paddlet_url) setPaddletUrl(payload.new.paddlet_url)
+        setSubmitted(false)
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
@@ -170,13 +172,44 @@ export default function StudentView({ student }) {
         return (
           <div style={s.box}>
             <p style={s.infoText}>{instruction}</p>
-            <textarea
-              style={s.textarea}
-              placeholder={placeholder}
-              value={progress[field] || ''}
-              onChange={e => saveProgress(field, e.target.value)}
-              rows={3}
-            />
+            {submitted ? (
+              <div style={s.waitingBox}>
+                <div style={s.waitingEmoji}>⏳</div>
+                <p style={s.waitingText}>입력 완료!</p>
+                <p style={s.waitingSubText}>친구들이 입력을 완료할 때까지 기다려주세요 🙂</p>
+                <div style={s.myAnswer}>
+                  <span style={s.myAnswerLabel}>내 답변</span>
+                  <p style={s.myAnswerText}>{progress[field]}</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  style={s.textarea}
+                  placeholder={placeholder}
+                  value={progress[field] || ''}
+                  onChange={e => saveProgress(field, e.target.value)}
+                  rows={3}
+                />
+                <button
+                  style={{
+                    ...s.mintBtn,
+                    background: progress[field] ? '#4ECDC4' : '#cbd5e1',
+                    marginTop: '12px',
+                    cursor: progress[field] ? 'pointer' : 'not-allowed',
+                  }}
+                  onClick={() => {
+                    if (progress[field]) {
+                      saveProgress(`${field}_submitted`, true)
+                      setSubmitted(true)
+                    }
+                  }}
+                  disabled={!progress[field]}
+                >
+                  ✅ 입력 완료
+                </button>
+              </>
+            )}
           </div>
         )
 
@@ -414,6 +447,22 @@ const s = {
   checkbox: { width: '20px', height: '20px', marginTop: '2px', flexShrink: 0, accentColor: '#4ECDC4' },
   checkText: { fontSize: '15px', color: '#334155', lineHeight: '1.5' },
   waitText: { textAlign: 'center', color: '#94a3b8', fontSize: '15px', padding: '16px' },
+  waitingBox: {
+    background: '#f0fdf9', border: '2px solid #4ECDC4',
+    borderRadius: '12px', padding: '24px', textAlign: 'center',
+  },
+  waitingEmoji: { fontSize: '40px', marginBottom: '8px' },
+  waitingText: { fontSize: '20px', fontWeight: '900', color: '#2BA39A', marginBottom: '4px' },
+  waitingSubText: { fontSize: '15px', color: '#64748b', marginBottom: '16px' },
+  myAnswer: {
+    background: '#fff', borderRadius: '10px', padding: '12px',
+    textAlign: 'left', border: '1px solid #e2e8f0',
+  },
+  myAnswerLabel: {
+    fontSize: '11px', fontWeight: '700', color: '#4ECDC4',
+    display: 'block', marginBottom: '4px',
+  },
+  myAnswerText: { fontSize: '15px', color: '#334155', lineHeight: '1.6' },
   aiButtons: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '8px' },
   aiBtn: {
     display: 'block', color: '#fff', fontSize: '15px', fontWeight: '700',
