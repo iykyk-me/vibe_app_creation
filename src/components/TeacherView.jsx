@@ -133,6 +133,53 @@ export default function TeacherView() {
     alert('초기화 완료!')
   }
 
+  const downloadExcel = async () => {
+    // 학생 목록 가져오기
+    const { data: students } = await supabase.from('students').select('*')
+    const { data: personas } = await supabase.from('personas').select('*')
+    const { data: progress } = await supabase.from('student_progress').select('*').eq('session_num', 1)
+
+    if (!students?.length) { alert('학생 데이터가 없습니다'); return }
+
+    const personaMap = {}
+    personas?.forEach(p => { if (p.assigned_to) personaMap[p.assigned_to] = p })
+
+    const progressMap = {}
+    progress?.forEach(p => { progressMap[p.student_id] = p.data || {} })
+
+    // CSV 생성
+    const headers = ['학번', '이름', '페르소나', '불편함①', '불편함②', 'AI불편함①', 'AI불편함②', 'AI불편함③', '선택한문제', '선택이유']
+    const rows = students.map(s => {
+      const p = progressMap[s.student_id] || {}
+      const persona = personaMap[s.student_id]
+      return [
+        s.student_number,
+        s.student_name,
+        persona ? `${persona.name}(${persona.age} ${persona.job})` : '',
+        p.discomfort_1 || '',
+        p.discomfort_2 || '',
+        p.ai_discomfort_1 || '',
+        p.ai_discomfort_2 || '',
+        p.ai_discomfort_3 || '',
+        p.selected_item || '',
+        p.reason || '',
+      ]
+    })
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('
+')
+
+    const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `코딩동아리_1차시_${new Date().toLocaleDateString('ko-KR').replace(/\. /g,'-').replace('.','')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const savePaddletUrl = async () => {
     await supabase.from('session').update({ paddlet_url: paddletUrl }).eq('id', 1)
     alert('패들렛 URL이 저장되었습니다')
@@ -260,6 +307,11 @@ export default function TeacherView() {
           />
           <button style={styles.saveBtn} onClick={savePaddletUrl}>저장</button>
         </div>
+
+        {/* 데이터 다운로드 */}
+        <button style={styles.downloadBtn} onClick={downloadExcel}>
+          📥 학생 데이터 다운로드
+        </button>
 
         {/* 초기화 버튼 */}
         <button style={styles.resetBtn} onClick={resetPersonas}>
@@ -484,6 +536,18 @@ const styles = {
   responseBarFill: {
     height: '100%', background: '#4ECDC4',
     borderRadius: '4px', transition: 'width 0.5s ease',
+  },
+  downloadBtn: {
+    background: '#4ECDC4',
+    color: '#fff',
+    padding: '12px',
+    borderRadius: '10px',
+    fontSize: '14px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    border: 'none',
+    width: '100%',
   },
   resetBtn: {
     background: '#fff',
