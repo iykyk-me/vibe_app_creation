@@ -395,9 +395,9 @@ export default function StudentView({ student }) {
         // 완성된 프롬프트 문자열 생성
         const buildPrompt = () => {
           return templateParts.map(part => {
-            if (typeof part === 'string') return part
-            if (part.field) return progress[part.field] || `[${part.field}]`
-            if (part.auto) return progress[part.auto] || `[${part.auto}]`
+            if (part.text !== undefined) return part.text
+            if (part.field) return progress[part.field] || `[입력 필요]`
+            if (part.auto) return progress[part.auto] || `[이전 입력값]`
             return ''
           }).join('')
         }
