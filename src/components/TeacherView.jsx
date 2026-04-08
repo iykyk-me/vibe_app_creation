@@ -166,10 +166,10 @@ export default function TeacherView() {
       ]
     })
 
+    const newline = '\n'
     const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-      .join('
-')
+      .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))
+      .join(newline)
 
     const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
