@@ -553,7 +553,7 @@ const s = {
     textAlign: 'center', textDecoration: 'none',
   },
   personaCard: { marginTop: '16px', border: '2px solid #E0F7F5', borderRadius: '12px', overflow: 'hidden' },
-  personaImage: { width: '100%', height: '200px', objectFit: 'cover' },
+  personaImage: { width: '100%', height: '400px', objectFit: 'contain', background: '#f8fafc' },
   personaInfo: { padding: '16px' },
   personaName: { fontSize: '22px', fontWeight: '900', color: '#1a1a2e' },
   personaAge: { fontSize: '15px', color: '#64748b', marginTop: '4px' },
